@@ -1,4 +1,4 @@
-{% extends "layout/base.html" %}
+{% extends "layout/base-new.html" %}
 {% load static %}
 
 
@@ -28,9 +28,21 @@
                     <li class="list-group-item">
                         <strong>ID:</strong> {{ product.id }}
                     </li>
-                    <li class="list-group-item">
+                    <!--<li class="list-group-item">
                         <strong>FABRICANTE:</strong> {{ product.manufacturer }}
-                    </li>
+                    </li>-->
+
+                    {% if manufacturers|length %}
+                    <h3 class="mt-3 subtitle">Fabricantes</h3>
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item">
+                            {% for manufacturer in manufacturers %}
+                                <span class="badge {{ manufacturer.blue }}">{{ manufacturer.name }}</span>
+                            {% endfor %}
+                        </li>
+                    </ul>
+                    {% endif %}
+
                     <li class="list-group-item">
                         <strong>MODELO:</strong> {{ product.model }}
                     </li>
@@ -49,8 +61,10 @@
 
 
                 <div class="mt-5">
+                    {% if user.is_superuser %}
                     <a class="btn btn-success" href="{% url 'product_load' product.id %}">Editar</a>
                     <a class="btn btn-danger" href="{% url 'product_delete' product.id %}">Borrar</a>
+                    {% endif %}
                     <a class="btn btn-info" href="{% url 'product_list' %}">Volver al listado</a>
                 </div>
 

@@ -1,4 +1,4 @@
-{% extends "layout/base.html" %}
+{% extends "layout/base-new.html" %}
 {% load static %}
 {% block title %}
     <title>Product {{ product.id }}</title>
@@ -22,10 +22,10 @@
                     <input type="hidden" class="form-control" name="id" id="id" value="{{ product.id }}">
 
 
-                    <div class="mb-3">
+                    <!--<div class="mb-3">
                         <label for="manufacturer" class="form-label">Manufacturer</label>
                         <input type="text" class="form-control" name="manufacturer" id="manufacturer" value="{{ product.manufacturer }}">
-                    </div>
+                    </div>-->
 
                     <div class="mb-3">
                         <label for="model" class="form-label">Model</label>
@@ -62,6 +62,20 @@
                                     <option value="{{ category.id }}" {% if product.category_id == category.id %}
                                             selected {% endif %}>
                                         {{ category.name }}
+                                    </option>
+                                {% endfor %}
+
+                            </select>
+                        </label>
+                    </div>
+                    <div class="mb-3">
+                        <label for="manufacturers">
+                            Manufacturers
+                            <select class="form-select" id="manufacturers" name="manufacturers" multiple>
+
+                                {% for manufacturer in manufacturers %}
+                                    <option value="{{ manufacturer.id }}" {% if manufacturer in product.manufacturers.all %}selected {% endif %}>
+                                        {{ manufacturer.name }}
                                     </option>
                                 {% endfor %}
 

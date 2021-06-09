@@ -3,18 +3,26 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.shortcuts import render, redirect
 from django.http import HttpResponse, HttpResponseRedirect, HttpResponseNotFound
-from .models import Product, Category
+from .models import Product, Category, Profile, Manufacturer
 
 
 # Create your views here.
 
 
-# def home(request):
-#     return render(request, "home.html")
-
-
 def home_redirect(request):
     return HttpResponseRedirect("/products")
+
+
+# ************** CARGA PAGINA DE INICIO ***************
+def index_load(request):
+    print(request.session.session_key)
+    request.session["cart"] = []
+    data = {
+        "products": Product.objects.all(),
+        "categories": Category.objects.all()
+    }
+    return render(request, "indice/index.html", context=data)
+    #return HttpResponseRedirect("/indice")
 
 
 # ************** SIGN IN / SIGN UP ***************
@@ -30,7 +38,8 @@ def do_login(request):
         return render(request, "accounts/login.html")
 
     login(request, user)
-    return redirect('product_list')
+    #return redirect('product_list')
+    return redirect('index_load')
 
 
 def do_logout(request):
@@ -52,6 +61,19 @@ def do_register(request):
     return redirect('login')
 
 
+# *************** CRUD PROFILE ***************
+
+def profile_create(request):
+    email_form = request.POST.get("email")
+    type_form = request.POST.get("type")
+
+    user = User.objects.get(email=email_form).first()
+
+    Profile.objects.create(user.id, type_form)
+    # return HttpResponseRedirect("/products")
+    return redirect('/products')
+
+
 # *************** CRUD ORDENADORES ***************
 
 
@@ -59,9 +81,8 @@ def do_register(request):
 def product_list(request):
     data = {
         "products": Product.objects.all(),  # recupera libros de db,
-        "categories": Category.objects.all()
-        #"notification": "Listado de libros",
-        #"admin": False
+        "categories": Category.objects.all(),
+        "manufacturers": Manufacturer.objects.all()
     }
     return render(request, "products/product_list.html", context=data)
 
@@ -70,7 +91,7 @@ def product_list(request):
 def product_new(request):
     data = {
         "categories": Category.objects.all(),
-    #    "genres": Genre.objects.all()
+        "manufacturers": Manufacturer.objects.all()
     }
     return render(request, "products/product_edit.html", context=data)
 
@@ -79,7 +100,8 @@ def product_new(request):
 def product_load(request, id):
     data = {
         "product": Product.objects.get(id=id), # recuperamos el producto
-        "categories": Category.objects.exclude(product__isnull=False)
+        "categories": Category.objects.all(),
+        "manufacturers": Manufacturer.objects.all()
     }
     return render(request, "products/product_edit.html", context=data)
 
@@ -87,14 +109,14 @@ def product_load(request, id):
 @login_required
 def product_save(request):
     creation = not request.POST.get("id")
-    # genres = request.POST.getlist('genres')
+    manufacturers = request.POST.getlist('manufacturers')
 
     category_id_str = request.POST.get("category_id")
     category_id = int(category_id_str) if category_id_str else None
 
     if creation:
         product = Product.objects.create(
-            manufacturer=request.POST.get("manufacturer"),
+            # manufacturer=request.POST.get("manufacturer"),
             model=request.POST.get("model"),
             ram=request.POST.get("ram"),
             description=request.POST.get("description"),
@@ -102,19 +124,20 @@ def product_save(request):
             image=request.POST.get("image"),
             category_id=category_id
         )
-        # book.genres.set(genres)
+        product.manufacturers.set(manufacturers)
     else:
-        # Editar un libro existente
+        # Editar un producto existente
         id_product = int(request.POST.get("id"))
         product = Product.objects.get(id=id_product)
 
-        product.manufacturer = request.POST.get("manufacturer")
+        # product.manufacturer = request.POST.get("manufacturer")
         product.model = request.POST.get("model")
         product.ram = request.POST.get("ram")
         product.description = request.POST.get("description")
         product.price = float(request.POST.get("price"))
         product.image = request.POST.get("image")
         product.category_id = category_id
+        product.manufacturers.set(manufacturers)
 
         product.save()
     return HttpResponseRedirect("/products/{}/view".format(product.id))
@@ -123,31 +146,26 @@ def product_save(request):
 @login_required
 def product_filter(request):
     category_id_str = request.GET.get("category_id")
-    #genres = request.GET.getlist("genres")
+    manufacturers = request.GET.getlist("manufacturers")
     category_id = int(category_id_str) if category_id_str else None
 
     products = None
-    if category_id:
-        products = Product.objects.filter(category_id=category_id).distinct()
+    if category_id and len(manufacturers) >= 1:
+        products = Product.objects.filter(category_id=category_id, manufacturers__id__in=manufacturers).distinct()
+    elif category_id:
+        products = Product.objects.filter(category_id=category_id)
+    elif len(manufacturers) >= 1:
+        products = Product.objects.filter(manufacturers__id__in=manufacturers).distinct()
     else:
         products = Product.objects.all()
-
-    # FIX - no filtra bien:
-    # filter_args = {}
-    # if author_id:
-    #     filter_args['author_id'] = author_id
-    # if len(genres) > 1:
-    #     filter_args['genres__id__in'] = genres
-    #
-    # books = Book.objects.filter(**filter_args).distinct()
 
     data = {
         "products": products,
         "categories": Category.objects.all(),
-        #"genres": Genre.objects.all(),
+        "manufacturers": Manufacturer.objects.all(),
         # Seleccionados en el filtro
         "category_id": category_id,
-        #"genres_filtered": Genre.objects.filter(id__in=genres)
+        "manufacturers_filtered": Manufacturer.objects.filter(id__in=manufacturers)
     }
 
     return render(request, "products/product_list.html", context=data)
@@ -158,7 +176,7 @@ def product_view(request, id):
     product = Product.objects.get(id=id)
     data = {
         "product": product,
-        # "genres": book.genres.all()
+        "manufacturers": product.manufacturers.all()
     }
     return render(request, "products/product_view.html", context=data)
 
@@ -172,3 +190,26 @@ def product_delete(request, pk):
     except Product.DoesNotExist:
         return HttpResponseNotFound("Product no encontrado")
 
+
+# ************** OPERACIONES CARRITO ***************
+
+def cart_add_product(request, product_id):
+    product = Product.objects.get(id=product_id)
+    lista = []
+    lista = request.session["cart"]
+    lista.append(product)
+    print(lista)
+    request.session["cart"] = lista
+    return render(request, "products/product_list.html")
+
+
+def cart_delete_product(request, product_id):
+    product = Product.objects.get(id=product_id)
+    pass
+
+def cart_reduce_product(request, product_id):
+    pass
+
+
+def cart_clean(request, product_id):
+    pass
